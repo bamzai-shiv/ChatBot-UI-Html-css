@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Nova Chat</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    /* ---------- Theme tokens ---------- */
+    :root {
+      --hue: 265;
+      --bg: #0b0b10;
+      --fg: #e9e9ef;
+      --muted: #a7a7b4;
+      --card: rgba(255, 255, 255, 0.06);
+      --card-strong: rgba(255, 255, 255, 0.10);
+      --accent: hsl(var(--hue) 90% 60%);
+      --ring: hsl(var(--hue) 95% 62% / 0.6);
+      --shadow: 0 10px 30px rgba(0,0,0,0.35), 0 2px 6px rgba(0,0,0,0.2);
+      --radius: 14px;
+      --blur: 18px;
+      color-scheme: dark;
+    }
+    [data-theme="light"] {
+      --bg: #f7f7fb;
+      --fg: #14141a;
+      --muted: #4e4e5a;
+      --card: rgba(255,255,255,0.65);
+      --card-strong: rgba(255,255,255,0.9);
+      color-scheme: light;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+      color: var(--fg);
+      background:
+        radial-gradient(1200px 800px at 85% -10%, hsl(var(--hue) 90% 45% / 0.08), transparent 60%),
+        radial-gradient(1000px 700px at -10% 110%, hsl(calc(var(--hue) + 40) 90% 50% / 0.07), transparent 55%),
+        linear-gradient(180deg, #07070a, var(--bg));
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    /* ---------- App Shell ---------- */
+    .app {
+      width: min(1100px, 100%);
+      height: min(86vh, 900px);
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      border-radius: calc(var(--radius) + 4px);
+      background: var(--card);
+      backdrop-filter: blur(var(--blur)) saturate(120%);
+      -webkit-backdrop-filter: blur(var(--blur)) saturate(120%);
+      border: 1px solid rgba(255,255,255,0.12);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      position: relative;
+      isolation: isolate;
+    }
+
+    .app::before {
+      content: "";
+      position: absolute;
+      inset: -2px;
+      border-radius: inherit;
+      pointer-events: none;
+      background: conic-gradient(from 180deg at 50% 50%, transparent 0 20%, var(--ring) 20% 35%, transparent 35% 55%, var(--ring) 55% 70%, transparent 70% 100%);
+      filter: blur(22px) saturate(160%);
+      opacity: 0.35;
+      z-index: -1;
+    }
+
+    /* ---------- Header ---------- */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 18px;
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+      background: linear-gradient(180deg, var(--card-strong), transparent);
+    }
+    .logo {
+      display: grid; place-items: center;
+      width: 36px; height: 36px; border-radius: 12px;
+      background: linear-gradient(135deg, hsl(var(--hue) 90% 62%), hsl(var(--hue) 80% 52%));
+      box-shadow: 0 8px 18px hsl(var(--hue) 80% 45% / 0.45), inset 0 0 18px rgba(255,255,255,0.35);
+    }
+    .title {
+      font-weight: 700; letter-spacing: 0.2px;
+    }
+    .spacer { flex: 1; }
+    .icon-btn {
+      appearance: none; border: 0; background: transparent; color: var(--fg);
+      display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px;
+      position: relative; cursor: pointer;
+    }
+    .icon-btn:hover::after {
+      content: ""; position: absolute; inset: 0;
+      border-radius: inherit; background: var(--card-strong);
+    }
+    .icon { width: 20px; height: 20px; z-index: 1; }
+
+    /* ---------- Chat Area ---------- */
+    .chat {
+      padding: 18px;
+      overflow: auto;
+      display: grid;
+      gap: 14px;
+      scroll-behavior: smooth;
+    }
+    .msg-row {
+      display: grid;
+      grid-template-columns: 40px 1fr;
+      gap: 10px;
+      align-items: flex-end;
+    }
+    .avatar {
+      width: 40px; height: 40px; border-radius: 12px;
+      display: grid; place-items: center;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.12);
+      backdrop-filter: blur(8px);
+    }
+    .bubble {
+      padding: 12px 14px;
+      border-radius: 12px 12px 12px 4px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      box-shadow: 0 6px 16px rgba(0,0,0,0.22);
+      line-height: 1.45;
+      word-wrap: break-word;
+      overflow-wrap: anywhere;
+    }
+    .msg-row.user .bubble {
+      background: linear-gradient(135deg, hsl(var(--hue) 90% 52% / 0.25), rgba(255,255,255,0.05));
+      border: 1px solid hsl(var(--hue) 90% 60% / 0.35);
+      border-radius: 12px 12px 4px 12px;
+    }
+    .meta {
+      margin-top: 6px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* typing dots */
+    .typing {
+      display: inline-flex; gap: 6px; align-items: center;
+    }
+    .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--fg); opacity: 0.35;
+      animation: up 1.2s infinite ease-in-out;
+    }
+    .dot:nth-child(2) { animation-delay: 0.15s; }
+    .dot:nth-child(3) { animation-delay: 0.3s; }
+    @keyframes up {
+      0%, 60%, 100% { transform: translateY(0); opacity: 0.35; }
+      30% { transform: translateY(-6px); opacity: 0.8; }
+    }
+
+    /* ---------- Input Bar ---------- */
+    .composer {
+      display: grid;
+      grid-template-columns: auto 1fr auto auto auto;
+      gap: 10px;
+      align-items: center;
+      padding: 12px 14px;
+      border-top: 1px solid rgba(255,255,255,0.12);
+      background: linear-gradient(0deg, var(--card-strong), transparent);
+    }
+    .pill {
+      border-radius: 14px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      display: grid; place-items: center;
+      width: 40px; height: 40px;
+      cursor: pointer;
+      transition: transform 0.12s ease;
+    }
+    .pill:active { transform: scale(0.98); }
+    textarea {
+      width: 100%;
+      resize: none;
+      min-height: 40px;
+      max-height: 120px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.06);
+      color: var(--fg);
+      border-radius: 12px;
+      padding: 10px 12px;
+      outline: none;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+      font: inherit;
+    }
+    .send {
+      background: linear-gradient(135deg, hsl(var(--hue) 90% 62%), hsl(var(--hue) 80% 52%));
+      border: 0; color: white; border-radius: 12px;
+      width: 44px; height: 40px; cursor: pointer;
+      box-shadow: 0 8px 18px hsl(var(--hue) 80% 45% / 0.45);
+      transition: transform 0.12s ease, filter 0.12s ease;
+    }
+    .send:hover { filter: brightness(1.05); }
+    .send:active { transform: translateY(1px); }
+
+    /* ---------- Scrollbar ---------- */
+    .chat::-webkit-scrollbar { height: 12px; width: 12px; }
+    .chat::-webkit-scrollbar-thumb {
+      background: linear-gradient(180deg, rgba(255,255,255,0.25), rgba(255,255,255,0.12));
+      border: 3px solid transparent; border-radius: 999px; background-clip: padding-box;
+    }
+    .chat::-webkit-scrollbar-track { background: transparent; }
+
+    @media (max-width: 640px) {
+      .app { height: 92vh; }
+      .title { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app" id="app">
+    <div class="header">
+      <div class="logo">
+        <svg class="icon" viewBox="0 0 24 24" fill="none">
+          <path d="M12 3l7.5 4.5v9L12 21l-7.5-4.5v-9L12 3z" stroke="white" stroke-width="1.2"/>
+          <circle cx="12" cy="12" r="2.6" fill="white"/>
+        </svg>
+      </div>
+      <div class="title">Nova Chat</div>
+      <div class="spacer"></div>
+      <button class="icon-btn" id="themeBtn" title="Toggle theme">
+        <svg class="icon" id="themeIcon" viewBox="0 0 24 24" fill="none">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke="currentColor" stroke-width="1.6"/>
+        </svg>
+      </button>
+      <button class="icon-btn" id="ttsBtn" title="Toggle TTS">
+        <svg class="icon" viewBox="0 0 24 24" fill="none">
+          <path d="M3 10v4h4l5 5V5L7 10H3z" stroke="currentColor" stroke-width="1.6"/>
+          <path d="M14 10c1.333 1 1.333 3 0 4" stroke="currentColor" stroke-width="1.6" />
+        </svg>
+      </button>
+    </div>
+
+    <div class="chat" id="chat"></div>
+
+    <div class="composer">
+      <label class="pill" title="Attach">
+        <input type="file" id="fileInput" hidden accept="image/*" />
+        <svg class="icon" viewBox="0 0 24 24" fill="none">
+          <path d="M21 15V8a5 5 0 1 0-10 0v9a3 3 0 1 0 6 0V9" stroke="currentColor" stroke-width="1.6"/>
+        </svg>
+      </label>
+
+      <textarea id="input" placeholder="Ask anything... Use /help for commands"></textarea>
+
+      <button class="pill" id="micBtn" title="Hold to speak">
+        <svg class="icon" viewBox="0 0 24 24" fill="none">
+          <rect x="9" y="2" width="6" height="12" rx="3" stroke="currentColor" stroke-width="1.6"/>
+          <path d="M5 11a7 7 0 0 0 14 0M12 18v4" stroke="currentColor" stroke-width="1.6"/>
+        </svg>
+      </button>
+
+      <button class="send" id="sendBtn" title="Send">
+        <svg class="icon" viewBox="0 0 24 24" fill="none">
+          <path d="M22 2L11 13" stroke="white" stroke-width="1.6" />
+          <path d="M22 2l-7 20-4-9-9-4 20-7z" stroke="white" stroke-width="1.6" />
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    const el = {
+      chat: document.getElementById('chat'),
+      input: document.getElementById('input'),
+      send: document.getElementById('sendBtn'),
+      mic: document.getElementById('micBtn'),
+      themeBtn: document.getElementById('themeBtn'),
+      ttsBtn: document.getElementById('ttsBtn'),
+      file: document.getElementById('fileInput')
+    };
+
+    let settings = {
+      theme: localStorage.getItem('theme') || 'dark',
+      tts: false
+    };
+    document.documentElement.setAttribute('data-theme', settings.theme);
+
+    const state = {
+      messages: [
+        { role: 'bot', content: "Hey! I’m Nova—ask me anything or try /help to see tips." , time: new Date() }
+      ],
+      typing: false
+    };
+
+    function scrollToBottom() {
+      el.chat.scrollTop = el.chat.scrollHeight;
+    }
+
+    function render() {
+      el.chat.innerHTML = '';
+      for (const m of state.messages) {
+        const row = document.createElement('div');
+        row.className = 'msg-row ' + (m.role === 'user' ? 'user' : 'bot');
+
+        const avatar = document.createElement('div');
+        avatar.className = 'avatar';
+        avatar.innerHTML = m.role === 'user'
+          ? '<svg class="icon" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.6"/><path d="M4 20a8 8 0 0 1 16 0" stroke="currentColor" stroke-width="1.6"/></svg>'
+          : '<svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3l7.5 4.5v9L12 21l-7.5-4.5v-9L12 3z" stroke="currentColor" stroke-width="1.2"/><circle cx="12" cy="12" r="2.6" fill="currentColor"/></svg>';
+
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble';
+        bubble.innerHTML = sanitize(m.content);
+
+        const meta = document.createElement('div');
+        meta.className = 'meta';
+        meta.textContent = timeStr(m.time);
+
+        const cell = document.createElement('div');
+        cell.appendChild(bubble);
+        cell.appendChild(meta);
+
+        row.appendChild(avatar);
+        row.appendChild(cell);
+        el.chat.appendChild(row);
+      }
+
+      if (state.typing) {
+        const row = document.createElement('div');
+        row.className = 'msg-row bot';
+        row.innerHTML = `
+          <div class="avatar">
+            <svg class="icon" viewBox="0 0 24 24" fill="none">
+              <path d="M12 3l7.5 4.5v9L12 21l-7.5-4.5v-9L12 3z" stroke="currentColor" stroke-width="1.2"/>
+              <circle cx="12" cy="12" r="2.6" fill="currentColor"/>
+            </svg>
+          </div>
+          <div>
+            <div class="bubble">
+              <span class="typing">
+                <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+              </span>
+            </div>
+            <div class="meta">typing…</div>
+          </div>`;
+        el.chat.appendChild(row);
+      }
+
+      scrollToBottom();
+    }
+
+    function timeStr(dt) {
+      const h = dt.getHours();
+      const m = String(dt.getMinutes()).padStart(2, '0');
+      const ap = h >= 12 ? 'PM' : 'AM';
+      const hh = ((h + 11) % 12 + 1);
+      return hh + ':' + m + ' ' + ap;
+    }
+
+    function sanitize(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      let html = div.innerHTML;
+      // simple linkification
+      html = html.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+      // simple code fencing
+      html = html.replace(/``````/gs, '<pre><code>$1</code></pre>');
+      return html.replace(/\n/g, '<br/>');
+    }
+
+    function sendMessage() {
+      const raw = el.input.value.trim();
+      if (!raw) return;
+
+      // commands
+      if (raw === '/clear') {
+        state.messages = [];
+        render();
+        el.input.value = '';
+        return;
+      }
+      if (raw === '/help') {
+        state.messages.push({ role: 'bot', content: "Tips: Enter to send • Shift+Enter for newline • /clear to wipe • /export to download your chat." , time: new Date() });
+        render();
+        el.input.value = '';
+        return;
+      }
+      if (raw === '/export') {
+        const blob = new Blob([JSON.stringify(state.messages, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `chat-${Date.now()}.json`;
+        a.click();
+        el.input.value = '';
+        return;
+      }
+
+      // push user message
+      const userMsg = { role: 'user', content: raw, time: new Date() };
+      state.messages.push(userMsg);
+      el.input.value = '';
+      render();
+
+      // respond
+      reply(raw);
+    }
+
+    async function reply(prompt) {
+      state.typing = true;
+      render();
+
+      // MOCK: replace this with your API call
+      const botText = await mockRespond(prompt);
+
+      state.typing = false;
+      const botMsg = { role: 'bot', content: "", time: new Date() };
+      state.messages.push(botMsg);
+      render();
+
+      // Typewriter effect
+      await typeStream(botMsg, botText);
+
+      if (settings.tts) speak(botText);
+    }
+
+    function mockRespond(q) {
+      return new Promise(res => {
+        const lines = [
+          "Here’s a concise answer:",
+          "- I understood your message and generated a helpful response.",
+          "- You can wire this to any API by replacing mockRespond with fetch.",
+          "``````"
+        ];
+        setTimeout(() => res(lines.join('\n')), 700 + Math.random() * 600);
+      });
+    }
+
+    async function typeStream(msgRef, full) {
+      const step = 2 + Math.floor(Math.random() * 2);
+      for (let i = 0; i <= full.length; i += step) {
+        msgRef.content = full.slice(0, i);
+        render();
+        await new Promise(r => setTimeout(r, 12));
+      }
+      msgRef.content = full;
+      render();
+    }
+
+    // voice: SpeechSynthesis (TTS)
+    function speak(text) {
+      try {
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(text);
+        u.rate = 1.03;
+        u.pitch = 1.02;
+        const voices = speechSynthesis.getVoices();
+        const pref = voices.find(v => /en/i.test(v.lang) && /female|google/i.test(v.name)) || voices[0];
+        if (pref) u.voice = pref;
+        speechSynthesis.speak(u);
+      } catch (e) {
+        console.warn('TTS unavailable', e);
+      }
+    }
+
+    // speech recognition (best-effort)
+    let recognizer = null, recognizing = false;
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognizer = new SR();
+      recognizer.lang = 'en-US';
+      recognizer.interimResults = false;
+      recognizer.continuous = false;
+      recognizer.onresult = (e) => {
+        const text = Array.from(e.results).map(r => r[0].transcript).join(' ');
+        el.input.value = text;
+        sendMessage();
+      };
+      recognizer.onend = () => recognizing = false;
+    }
+
+    // wire UI
+    el.send.addEventListener('click', sendMessage);
+    el.input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    el.themeBtn.addEventListener('click', () => {
+      settings.theme = settings.theme === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', settings.theme);
+      localStorage.setItem('theme', settings.theme);
+    });
+
+    el.ttsBtn.addEventListener('click', () => {
+      settings.tts = !settings.tts;
+      el.ttsBtn.style.opacity = settings.tts ? '1' : '0.6';
+      if (settings.tts) {
+        const msg = state.messages.filter(m => m.role === 'bot').at(-1);
+        if (msg) speak(msg.content);
+      } else {
+        speechSynthesis.cancel();
+      }
+    });
+
+    el.mic.addEventListener('mousedown', () => {
+      if (!recognizer) return;
+      if (!recognizing) {
+        recognizing = true;
+        recognizer.start();
+      }
+    });
+    el.mic.addEventListener('mouseup', () => {
+      if (recognizer && recognizing) recognizer.stop();
+    });
+    el.mic.addEventListener('mouseleave', () => {
+      if (recognizer && recognizing) recognizer.stop();
+    });
+
+    el.file.addEventListener('change', () => {
+      const f = el.file.files?.[0];
+      if (!f) return;
+      const url = URL.createObjectURL(f);
+      state.messages.push({ role: 'user', content: `Attached image:\n${url}`, time: new Date() });
+      render();
+    });
+
+    // autosize
+    el.input.addEventListener('input', () => {
+      el.input.style.height = 'auto';
+      el.input.style.height = Math.min(el.input.scrollHeight, 120) + 'px';
+    });
+
+    render();
+  </script>
+</body>
+</html>
