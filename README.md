@@ -1,4 +1,5 @@
 Nova Chat 🤖✨
+
 A sleek, glassmorphic web chatbot built with plain HTML, CSS, and JavaScript featuring dark/light themes, neon accents, typing animation, and optional voice features.
 Designed for modern, Gen Z‑leaning aesthetics with smooth UX, no build step, and easy API wiring for real responses.
 
